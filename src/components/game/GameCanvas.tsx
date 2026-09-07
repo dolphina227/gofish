@@ -179,7 +179,9 @@ export function GameCanvas() {
 
       <div className="pointer-events-none fixed right-4 top-4 z-40 flex flex-col items-end gap-2">
         <WalletButton />
+        <GraphicsButton />
         <QuestTracker />
+
       </div>
       <ProfilePanel />
       <GoldPanel />
