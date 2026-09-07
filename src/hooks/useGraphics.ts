@@ -16,7 +16,7 @@ export interface GraphicsPreset {
 
 export const GRAPHICS: Record<GraphicsTier, GraphicsPreset> = {
   low: {
-    label: "Rendah",
+    label: "Low",
     dpr: [1, 1],
     shadows: false,
     bloom: false,
@@ -25,7 +25,7 @@ export const GRAPHICS: Record<GraphicsTier, GraphicsPreset> = {
     glowScale: 0.55,
   },
   medium: {
-    label: "Sedang",
+    label: "Medium",
     dpr: [1, 1.25],
     shadows: true,
     bloom: true,
@@ -34,7 +34,7 @@ export const GRAPHICS: Record<GraphicsTier, GraphicsPreset> = {
     glowScale: 0.8,
   },
   high: {
-    label: "Tinggi",
+    label: "High",
     dpr: [1, 1.5],
     shadows: true,
     bloom: true,
