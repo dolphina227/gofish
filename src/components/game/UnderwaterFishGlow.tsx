@@ -252,6 +252,16 @@ export function UnderwaterFishGlowMesh() {
  *                in sync with the fight
  * @param color   rarity/monster tint
  */
+type GlowRefs = {
+  core: THREE.Sprite;
+  halo: THREE.Sprite;
+  flash: THREE.Mesh;
+  ring: THREE.Mesh;
+  beams: THREE.Mesh[];
+  motes: THREE.Sprite[];
+  light: THREE.PointLight;
+};
+
 export function animateUnderwaterGlow(
   g: THREE.Group,
   t: number,
@@ -259,8 +269,29 @@ export function animateUnderwaterGlow(
   jerk: number,
   color: string,
 ) {
-  const setOpacity = (name: string, op: number, tint?: string) => {
-    const o = g.getObjectByName(name) as THREE.Sprite | THREE.Mesh | undefined;
+  // Cache scene-graph lookups once per group (same pattern as
+  // MonsterBurst.tsx) — getObjectByName walks the whole subtree, and doing
+  // that ~20x every frame is what made the fight phase stutter.
+  let refs = g.userData["_glowRefs"] as GlowRefs | undefined;
+  if (!refs) {
+    refs = {
+      core: g.getObjectByName("coreSprite") as THREE.Sprite,
+      halo: g.getObjectByName("haloSprite") as THREE.Sprite,
+      flash: g.getObjectByName("surfaceFlash") as THREE.Mesh,
+      ring: g.getObjectByName("surfaceRing") as THREE.Mesh,
+      beams: Array.from({ length: BEAM_PLANES }, (_, i) => g.getObjectByName(`beam${i}`) as THREE.Mesh),
+      motes: Array.from({ length: GLOW_MOTES }, (_, i) => g.getObjectByName(`mote${i}`) as THREE.Sprite),
+      light: g.getObjectByName("underLight") as THREE.PointLight,
+    };
+    if (!refs.core || !refs.halo || !refs.flash || !refs.ring || !refs.light) return;
+    g.userData["_glowRefs"] = refs;
+  }
+
+  const setOpacity = (
+    o: THREE.Sprite | THREE.Mesh | undefined,
+    op: number,
+    tint?: string,
+  ) => {
     if (!o) return;
     const mat = o.material as THREE.SpriteMaterial | THREE.MeshBasicMaterial;
     mat.opacity = Math.max(0, Math.min(1, op));
@@ -271,38 +302,29 @@ export function animateUnderwaterGlow(
   const d = Math.max(0.05, depth);
 
   // ---- underwater source: a soft round glow at the fish's own depth --
-  const core = g.getObjectByName("coreSprite") as THREE.Sprite | undefined;
-  if (core) {
-    core.position.y = -d;
-    const s = 1.3 + pulse * 0.7;
-    core.scale.set(s, s, 1);
-  }
-  setOpacity("coreSprite", 0.8 * pulse, "#ffffff");
+  const core = refs.core;
+  core.position.y = -d;
+  const coreS = 1.3 + pulse * 0.7;
+  core.scale.set(coreS, coreS, 1);
+  setOpacity(core, 0.8 * pulse, "#ffffff");
 
-  const halo = g.getObjectByName("haloSprite") as THREE.Sprite | undefined;
-  if (halo) {
-    halo.position.y = -d;
-    const s = 2.8 + pulse * 1.6;
-    halo.scale.set(s, s, 1);
-  }
-  setOpacity("haloSprite", 0.55 * pulse, color);
+  const halo = refs.halo;
+  halo.position.y = -d;
+  const haloS = 2.8 + pulse * 1.6;
+  halo.scale.set(haloS, haloS, 1);
+  setOpacity(halo, 0.55 * pulse, color);
 
   // ---- surface flash + ring, right where the light meets the water --
-  const flash = g.getObjectByName("surfaceFlash") as THREE.Mesh | undefined;
-  if (flash) {
-    flash.position.y = 0.05;
-    const s = 2.6 + pulse * 1.8;
-    flash.scale.set(s, s, 1);
-  }
-  setOpacity("surfaceFlash", 0.55 * pulse, color);
+  const flash = refs.flash;
+  flash.position.y = 0.05;
+  const flashS = 2.6 + pulse * 1.8;
+  flash.scale.set(flashS, flashS, 1);
+  setOpacity(flash, 0.55 * pulse, color);
 
-  const ring = g.getObjectByName("surfaceRing") as THREE.Mesh | undefined;
-  if (ring) {
-    ring.position.y = 0.04;
-    const s = 1.7 + pulse * 1.6;
-    ring.scale.setScalar(s);
-  }
-  setOpacity("surfaceRing", 0.4 * pulse, color);
+  const ring = refs.ring;
+  ring.position.y = 0.04;
+  ring.scale.setScalar(1.7 + pulse * 1.6);
+  setOpacity(ring, 0.4 * pulse, color);
 
   // ---- light column: starts a little below the surface (near it, not
   // deep down) and reaches well above — the "bursting upward through
@@ -313,7 +335,7 @@ export function animateUnderwaterGlow(
   const beamLen = beamTop - beamBottom;
   const beamWidth = 1.4 + pulse * 0.8;
   for (let i = 0; i < BEAM_PLANES; i++) {
-    const m = g.getObjectByName(`beam${i}`) as THREE.Mesh | undefined;
+    const m = refs.beams[i];
     if (!m) continue;
     m.scale.set(beamWidth, beamLen, 1);
     m.position.set(0, beamBottom + beamLen / 2, 0);
@@ -325,7 +347,7 @@ export function animateUnderwaterGlow(
   // ---- motes: bright soft specks spiralling up out of the depths,
   // popping just past the surface, looping continuously ----------------
   for (let i = 0; i < GLOW_MOTES; i++) {
-    const m = g.getObjectByName(`mote${i}`) as THREE.Sprite | undefined;
+    const m = refs.motes[i];
     if (!m) continue;
     const speed = 0.5 + (i % 4) * 0.14;
     const mk = (t * speed + i / GLOW_MOTES) % 1; // 0..1 loop
@@ -335,16 +357,14 @@ export function animateUnderwaterGlow(
     m.position.set(Math.cos(a) * rad, rise, Math.sin(a) * rad);
     const sc = Math.max(0.02, (1 - mk) * 0.55);
     m.scale.set(sc, sc, 1);
-    setOpacity(`mote${i}`, (1 - mk) * 0.85 * pulse, color);
+    setOpacity(m, (1 - mk) * 0.85 * pulse, color);
   }
 
   // ---- light bleeding through the water and off the surface ---------
-  const light = g.getObjectByName("underLight") as THREE.PointLight | undefined;
-  if (light) {
-    light.color.set(color);
-    light.position.y = -d * 0.6;
-    light.intensity = pulse * 12;
-  }
+  const light = refs.light;
+  light.color.set(color);
+  light.position.y = -d * 0.6;
+  light.intensity = pulse * 12;
 }
 
 const ASCEND_EMBERS = 8;
