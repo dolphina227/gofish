@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import type { Rarity } from "@/lib/fishRules";
+import { GRAPHICS, useGraphics } from "@/hooks/useGraphics";
+
 
 /**
  * Continuous underwater light VFX shown while a fish is being fought
@@ -42,6 +44,14 @@ export const MONSTER_GLOW_COLOR = "#5dffc4";
 
 export const GLOW_MOTES = 12;
 const BEAM_PLANES = 3;
+
+/** Pengali ukuran efek cahaya bawah air, menyesuaikan dengan pilihan kualitas
+ *  grafis. Menggunakan getState() agar fungsi animasi pure tidak subscribe
+ *  seluruh komponen setiap frame. */
+export function glowScale() {
+  return GRAPHICS[useGraphics.getState().tier ?? "high"].glowScale;
+}
+
 
 /** Soft round blob: opaque white centre fading smoothly to fully
  *  transparent — used for every "glow" element (core, halo, surface
