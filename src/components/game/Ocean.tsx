@@ -1,8 +1,9 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { WEATHER, useWeather } from "@/hooks/useWeather";
 import { dayNightAt, clock, TINT_WEIGHT } from "@/hooks/useDayNight";
+import { GRAPHICS, useGraphics } from "@/hooks/useGraphics";
 
 export const waterHeight = (x: number, z: number, t: number) =>
   Math.sin(x * 0.14 + t * 1.1) * 0.35 +
@@ -79,6 +80,8 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uDeep;
   uniform vec3 uHorizon;
   uniform vec3 uSun;
+  uniform float uDetail;
+
   varying vec3 vWorld;
   varying float vWave;
   varying vec3 vNormalW;
@@ -86,11 +89,12 @@ const fragmentShader = /* glsl */ `
   ${noiseGLSL}
 
   // Multi-octave ripple field used for micro-normals (the shimmer detail).
+  // uDetail memangkas oktaf pada kualitas rendah/sedang.
   float ripples(vec2 p, float t) {
     float v = 0.0;
     v += fbm(p * 0.55 + vec2(t * 0.20, -t * 0.13)) * 1.05;
-    v += fbm(p * 1.60 + vec2(-t * 0.42, t * 0.31)) * 0.55;
-    v += fbm(p * 4.10 + vec2(t * 0.85, t * 0.61)) * 0.26;
+    if (uDetail > 0.5) v += fbm(p * 1.60 + vec2(-t * 0.42, t * 0.31)) * 0.55;
+    if (uDetail > 1.5) v += fbm(p * 4.10 + vec2(t * 0.85, t * 0.61)) * 0.26;
     return v;
   }
 
@@ -99,11 +103,22 @@ const fragmentShader = /* glsl */ `
     float t = uTime;
 
     // --- micro normal from the ripple field ---
-    float e = 0.35;
+    // Gradient analitik dari SATU sampel via screen-space derivatives:
+    // sebelumnya butuh 3 evaluasi noise (r0/rx/rz) per piksel.
     float r0 = ripples(p, t);
-    float rx = ripples(p + vec2(e, 0.0), t);
-    float rz = ripples(p + vec2(0.0, e), t);
-    vec3 detail = normalize(vec3(-(rx - r0) / e, 1.0, -(rz - r0) / e));
+    vec2 dpx = dFdx(p);
+    vec2 dpy = dFdy(p);
+    float det = dpx.x * dpy.y - dpx.y * dpy.x;
+    float d0x = dFdx(r0);
+    float d0y = dFdy(r0);
+    vec2 g = abs(det) > 1e-6
+      ? vec2(d0x * dpy.y - d0y * dpx.y, d0y * dpx.x - d0x * dpy.x) / det
+      : vec2(0.0);
+    // Redam agar amplitudonya setara beda-hingga lama (e = 0.35) dan tidak
+    // beraliasing saat dilihat menyudut.
+    g = clamp(g * 0.45, vec2(-3.0), vec2(3.0));
+    vec3 detail = normalize(vec3(-g.x, 1.0, -g.y));
+
 
     vec3 baseN = normalize(vNormalW);
     // Detail flattens with distance so the horizon stays calm instead of noisy.
@@ -126,9 +141,13 @@ const fragmentShader = /* glsl */ `
     body += sss * 0.10 * vec3(0.35, 1.0, 0.92);
 
     // --- caustic-like light bands under the surface ---
-    float caustic = ripples(p * 1.25 + vec2(0.0, t * 0.35), t * 0.8);
-    float bands = smoothstep(0.10, 0.30, caustic);
-    body += bands * 0.13 * vec3(0.55, 1.0, 0.98) * detailFade;
+    // Dilewati di kualitas rendah: ini satu evaluasi ripples penuh per piksel.
+    if (uDetail > 0.5) {
+      float caustic = ripples(p * 1.25 + vec2(0.0, t * 0.35), t * 0.8);
+      float bands = smoothstep(0.10, 0.30, caustic);
+      body += bands * 0.13 * vec3(0.55, 1.0, 0.98) * detailFade;
+    }
+
 
     // --- fresnel sky reflection ---
     float fres = pow(1.0 - max(dot(n, viewDir), 0.0), 4.0);
@@ -144,10 +163,13 @@ const fragmentShader = /* glsl */ `
     col += glitterB * 0.55 * detailFade * vec3(0.95, 1.0, 1.0);
 
     // View-independent surface glints: thin bright wavelet tops, like the
-    // scattered white flecks on sunlit tropical water.
-    float hf = fbm(p * 2.4 + vec2(t * 0.55, -t * 0.33)) + 0.55 * fbm(p * 5.6 - vec2(t * 0.9, t * 0.4));
+    // scattered white flecks on sunlit tropical water. Oktaf kedua hanya di
+    // kualitas menengah ke atas.
+    float hf = fbm(p * 2.4 + vec2(t * 0.55, -t * 0.33));
+    if (uDetail > 0.5) hf += 0.55 * fbm(p * 5.6 - vec2(t * 0.9, t * 0.4));
     float glint = smoothstep(0.30, 0.52, hf) * (1.0 - smoothstep(0.62, 0.85, hf));
     col += glint * 0.85 * detailFade * vec3(1.0, 1.0, 1.0);
+
 
     // --- foam on the tallest crests ---
     float crest = smoothstep(0.62, 1.0, vWave + r0 * 0.35);
@@ -168,6 +190,8 @@ export function Ocean() {
   const mat = useRef<THREE.ShaderMaterial>(null);
   const mesh = useRef<THREE.Mesh>(null);
   const kind = useWeather((s) => s.kind);
+  const tier = useGraphics((s) => s.tier);
+  const detail = GRAPHICS[tier].oceanDetail;
   const { scene } = useThree();
 
   const uniforms = useMemo(
@@ -178,9 +202,18 @@ export function Ocean() {
       uDeep: { value: new THREE.Color("#12a2b4") },
       uHorizon: { value: new THREE.Color("#b9dff3") },
       uSun: { value: new THREE.Vector3(30, 28, 18) },
+      uDetail: { value: 2 },
     }),
     [],
   );
+
+  // Tingkat detail hanya diupdate saat pilihan kualitas berubah, bukan per frame.
+  useEffect(() => {
+    const u = mat.current?.uniforms;
+    if (u?.['uDetail']) u['uDetail'].value = detail;
+  }, [detail]);
+
+
 
   // Target colours per weather kind, cached so the lerp can damp toward them.
   const targets = useMemo(() => {

@@ -22,6 +22,8 @@ import { WeatherCycleController } from "./WeatherCycleController";
 import { WEATHER, useWeather } from "@/hooks/useWeather";
 import { useDayNight, dayNightAt, TINT_WEIGHT } from "@/hooks/useDayNight";
 import { useFishData } from "@/hooks/useFishData";
+import { GRAPHICS, useGraphics } from "@/hooks/useGraphics";
+
 
 import { player } from "@/hooks/usePlayer";
 import { resumeWeatherAudio } from "@/lib/weatherAudio";
@@ -30,6 +32,8 @@ import { ProfilePanel } from "../profile/ProfilePanel";
 import { GoldPanel } from "../gold/GoldPanel";
 import { QuestPanel } from "../quest/QuestPanel";
 import { QuestTracker } from "../quest/QuestTracker";
+import { GraphicsButton } from "./GraphicsButton";
+
 import { Npcs } from "./Npcs";
 import { NpcDialog } from "./NpcDialog";
 import { LeaderboardPanel } from "../leaderboard/LeaderboardPanel";
@@ -66,6 +70,9 @@ export function GameCanvas() {
     .lerp(dayNightAt(hour).tint, TINT_WEIGHT)
     .getStyle();
   useFishData();
+  const tier = useGraphics((s) => s.tier);
+  const gfx = GRAPHICS[tier];
+
 
   // Browsers may suspend WebAudio after focus/background transitions. Resume
   // on every relevant gesture, in capture phase so gameplay handlers always
@@ -98,15 +105,18 @@ export function GameCanvas() {
       onContextMenu={(e) => e.preventDefault()}
     >
       <Canvas
-        shadows
-        dpr={[1, 1.5]}
+        // Opsi WebGL (antialias) dan shadow map tidak reaktif, jadi ganti
+        // kualitas = remount kanvas sekali lewat key.
+        key={tier}
+        shadows={gfx.shadows}
+        dpr={gfx.dpr}
         camera={{ position: [-1.5, 8.6, 25.5], fov: 55, near: 0.1, far: 5000 }}
-        // antialias native dimatikan: EffectComposer di bawah sudah pakai
-        // multisampling={4} sendiri. Dua-duanya nyala bareng berarti scene
-        // di-resolve MSAA dua kali per frame (fill-rate dobel) tanpa
-        // tambahan kualitas visual yang kentara.
-        gl={{ antialias: false }}
+        // antialias native hanya dipakai kalau EffectComposer tidak aktif.
+        // Kalau dua-duanya nyala, scene di-resolve MSAA dua kali per frame
+        // (fill-rate dobel) tanpa tambahan kualitas visual yang kentara.
+        gl={{ antialias: !gfx.bloom && tier !== "low" }}
       >
+
         <Weather />
         <WeatherCycleController />
 
@@ -149,15 +159,18 @@ export function GameCanvas() {
         <FollowTarget controls={controls} />
         <Npcs />
 
-        <EffectComposer multisampling={2}>
-          <Bloom
-            intensity={0.5}
-            luminanceThreshold={1.5}
-            luminanceSmoothing={0.1}
-            mipmapBlur={false}
-            radius={0.35}
-          />
-        </EffectComposer>
+        {gfx.bloom ? (
+          <EffectComposer multisampling={gfx.multisampling}>
+            <Bloom
+              intensity={0.5}
+              luminanceThreshold={1.5}
+              luminanceSmoothing={0.1}
+              mipmapBlur={false}
+              radius={0.35}
+            />
+          </EffectComposer>
+        ) : null}
+
       </Canvas>
       <HUD />
       <CatchPopup />
@@ -168,7 +181,9 @@ export function GameCanvas() {
 
       <div className="pointer-events-none fixed right-4 top-4 z-40 flex flex-col items-end gap-2">
         <WalletButton />
+        <GraphicsButton />
         <QuestTracker />
+
       </div>
       <ProfilePanel />
       <GoldPanel />

@@ -300,30 +300,34 @@ export function animateUnderwaterGlow(
 
   const pulse = 0.55 + Math.abs(jerk) * 0.35 + Math.sin(t * 17) * 0.06; // ~0.2..1
   const d = Math.max(0.05, depth);
+  // Sprite aditif yang menutupi hampir seluruh layar sangat mahal di GPU
+  // terintegrasi (overdraw + bloom), jadi ukurannya dikecilkan dan diskalakan
+  // lagi mengikuti pilihan kualitas grafis.
+  const gs = glowScale();
 
   // ---- underwater source: a soft round glow at the fish's own depth --
   const core = refs.core;
   core.position.y = -d;
-  const coreS = 1.3 + pulse * 0.7;
+  const coreS = (1.3 + pulse * 0.7) * gs;
   core.scale.set(coreS, coreS, 1);
   setOpacity(core, 0.8 * pulse, "#ffffff");
 
   const halo = refs.halo;
   halo.position.y = -d;
-  const haloS = 2.8 + pulse * 1.6;
+  const haloS = (2.1 + pulse * 1.2) * gs;
   halo.scale.set(haloS, haloS, 1);
   setOpacity(halo, 0.55 * pulse, color);
 
   // ---- surface flash + ring, right where the light meets the water --
   const flash = refs.flash;
   flash.position.y = 0.05;
-  const flashS = 2.6 + pulse * 1.8;
+  const flashS = (2.0 + pulse * 1.35) * gs;
   flash.scale.set(flashS, flashS, 1);
   setOpacity(flash, 0.55 * pulse, color);
 
   const ring = refs.ring;
   ring.position.y = 0.04;
-  ring.scale.setScalar(1.7 + pulse * 1.6);
+  ring.scale.setScalar((1.7 + pulse * 1.6) * gs);
   setOpacity(ring, 0.4 * pulse, color);
 
   // ---- light column: starts a little below the surface (near it, not
@@ -331,9 +335,10 @@ export function animateUnderwaterGlow(
   // the water" beat, built from soft fading planes rather than solid
   // geometry -----------------------------------------------------------
   const beamBottom = -Math.min(d, 0.5);
-  const beamTop = 4.5 + pulse * 2.5;
+  const beamTop = (4.5 + pulse * 2.5) * gs;
   const beamLen = beamTop - beamBottom;
-  const beamWidth = 1.4 + pulse * 0.8;
+  const beamWidth = (1.1 + pulse * 0.6) * gs;
+
   for (let i = 0; i < BEAM_PLANES; i++) {
     const m = refs.beams[i];
     if (!m) continue;
