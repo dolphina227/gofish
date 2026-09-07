@@ -22,6 +22,8 @@ import { WeatherCycleController } from "./WeatherCycleController";
 import { WEATHER, useWeather } from "@/hooks/useWeather";
 import { useDayNight, dayNightAt, TINT_WEIGHT } from "@/hooks/useDayNight";
 import { useFishData } from "@/hooks/useFishData";
+import { GRAPHICS, useGraphics } from "@/hooks/useGraphics";
+
 
 import { player } from "@/hooks/usePlayer";
 import { resumeWeatherAudio } from "@/lib/weatherAudio";
