@@ -1,8 +1,9 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { WEATHER, useWeather } from "@/hooks/useWeather";
 import { dayNightAt, clock, TINT_WEIGHT } from "@/hooks/useDayNight";
+import { GRAPHICS, useGraphics } from "@/hooks/useGraphics";
 
 export const waterHeight = (x: number, z: number, t: number) =>
   Math.sin(x * 0.14 + t * 1.1) * 0.35 +
