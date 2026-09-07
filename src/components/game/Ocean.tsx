@@ -86,11 +86,12 @@ const fragmentShader = /* glsl */ `
   ${noiseGLSL}
 
   // Multi-octave ripple field used for micro-normals (the shimmer detail).
+  // uDetail memangkas oktaf pada kualitas rendah/sedang.
   float ripples(vec2 p, float t) {
     float v = 0.0;
     v += fbm(p * 0.55 + vec2(t * 0.20, -t * 0.13)) * 1.05;
-    v += fbm(p * 1.60 + vec2(-t * 0.42, t * 0.31)) * 0.55;
-    v += fbm(p * 4.10 + vec2(t * 0.85, t * 0.61)) * 0.26;
+    if (uDetail > 0.5) v += fbm(p * 1.60 + vec2(-t * 0.42, t * 0.31)) * 0.55;
+    if (uDetail > 1.5) v += fbm(p * 4.10 + vec2(t * 0.85, t * 0.61)) * 0.26;
     return v;
   }
 
@@ -99,11 +100,22 @@ const fragmentShader = /* glsl */ `
     float t = uTime;
 
     // --- micro normal from the ripple field ---
-    float e = 0.35;
+    // Gradient analitik dari SATU sampel via screen-space derivatives:
+    // sebelumnya butuh 3 evaluasi noise (r0/rx/rz) per piksel.
     float r0 = ripples(p, t);
-    float rx = ripples(p + vec2(e, 0.0), t);
-    float rz = ripples(p + vec2(0.0, e), t);
-    vec3 detail = normalize(vec3(-(rx - r0) / e, 1.0, -(rz - r0) / e));
+    vec2 dpx = dFdx(p);
+    vec2 dpy = dFdy(p);
+    float det = dpx.x * dpy.y - dpx.y * dpy.x;
+    float d0x = dFdx(r0);
+    float d0y = dFdy(r0);
+    vec2 g = abs(det) > 1e-6
+      ? vec2(d0x * dpy.y - d0y * dpx.y, d0y * dpx.x - d0x * dpy.x) / det
+      : vec2(0.0);
+    // Redam agar amplitudonya setara beda-hingga lama (e = 0.35) dan tidak
+    // beraliasing saat dilihat menyudut.
+    g = clamp(g * 0.45, vec2(-3.0), vec2(3.0));
+    vec3 detail = normalize(vec3(-g.x, 1.0, -g.y));
+
 
     vec3 baseN = normalize(vNormalW);
     // Detail flattens with distance so the horizon stays calm instead of noisy.
