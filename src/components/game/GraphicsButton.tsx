@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Settings, Volume2, VolumeX, Music } from "lucide-react";
 import { GRAPHICS, useGraphics, hydrateGraphics, type GraphicsTier } from "@/hooks/useGraphics";
-import { setWeatherMuted, isWeatherMuted, setMusicVolume } from "@/lib/weatherAudio";
+import {
+  setWeatherMuted,
+  isWeatherMuted,
+  setMusicVolume,
+  setMasterVolume,
+  loadAudioPrefs,
+} from "@/lib/weatherAudio";
 
 const ORDER: GraphicsTier[] = ["low", "medium", "high"];
 
@@ -12,10 +18,18 @@ export function GraphicsButton() {
   const [open, setOpen] = useState(false);
   const [muted, setMuted] = useState(() => isWeatherMuted());
   const [music, setMusic] = useState(0.12);
+  const [volume, setVolume] = useState(0.9);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     hydrateGraphics();
+    const prefs = loadAudioPrefs();
+    setVolume(prefs.master);
+    setMusic(prefs.music);
+    setMuted(prefs.muted);
+    setMasterVolume(prefs.master);
+    setMusicVolume(prefs.music);
+    setWeatherMuted(prefs.muted);
   }, []);
 
   useEffect(() => {
@@ -81,6 +95,24 @@ export function GraphicsButton() {
               {muted ? "Off" : "On"}
             </span>
           </button>
+
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <Volume2 className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="shrink-0">Volume</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(volume * 100)}
+              aria-label="Overall volume"
+              onChange={(e) => {
+                const v = Number(e.target.value) / 100;
+                setVolume(v);
+                setMasterVolume(v);
+              }}
+              className="h-1 w-full cursor-pointer accent-sky-400"
+            />
+          </div>
 
           <div className="flex items-center gap-2 px-2 py-1.5">
             <Music className="h-3.5 w-3.5 shrink-0 text-slate-400" />

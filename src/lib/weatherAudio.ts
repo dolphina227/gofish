@@ -97,6 +97,34 @@ let musicVolume = 0.12;
 let noiseBuffer: AudioBuffer | null = null;
 let started = false;
 let muted = false;
+/** master (overall) volume 0..1 — all SFX + ambience + music pass through it */
+let masterVolume = 0.9;
+
+const MASTER_KEY = "gofish.audio.master";
+const MUSIC_KEY = "gofish.audio.music";
+const MUTE_KEY = "gofish.audio.muted";
+
+function persist(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* storage tidak tersedia */
+  }
+}
+
+/** Baca pilihan audio tersimpan (dipanggil dari UI setelah hidrasi). */
+export function loadAudioPrefs() {
+  try {
+    const m = window.localStorage.getItem(MASTER_KEY);
+    if (m !== null && Number.isFinite(Number(m))) masterVolume = Math.max(0, Math.min(Number(m), 1));
+    const mu = window.localStorage.getItem(MUSIC_KEY);
+    if (mu !== null && Number.isFinite(Number(mu))) musicVolume = Math.max(0, Math.min(Number(mu), 1));
+    muted = window.localStorage.getItem(MUTE_KEY) === "1";
+  } catch {
+    /* storage tidak tersedia */
+  }
+  return { master: masterVolume, music: musicVolume, muted };
+}
 let wavesLevel = 0; // desired wave level — set even before ctx exists
 let weatherMusicMuted = false; // mute melodic music during heavy rain/storm
 
@@ -142,7 +170,7 @@ export function initWeatherAudio() {
   noiseBuffer = makeNoise(ctx);
 
   master = ctx.createGain();
-  master.gain.value = muted ? 0 : 0.9;
+  master.gain.value = muted ? 0 : masterVolume;
   master.connect(ctx.destination);
   ensureSamples();
 
@@ -301,6 +329,7 @@ function playMusicPhrase() {
 /** background music volume 0..1 */
 export function setMusicVolume(v: number) {
   musicVolume = Math.max(0, Math.min(v, 1));
+  persist(MUSIC_KEY, String(musicVolume));
   if (ctx && musicGain) {
     musicGain.gain.setTargetAtTime(weatherMusicMuted ? 0 : musicVolume, ctx.currentTime, 0.3);
   }
@@ -318,7 +347,25 @@ export function resumeWeatherAudio() {
 
 export function setWeatherMuted(m: boolean) {
   muted = m;
-  if (master && ctx) master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.1);
+  persist(MUTE_KEY, m ? "1" : "0");
+  if (master && ctx) master.gain.setTargetAtTime(m ? 0 : masterVolume, ctx.currentTime, 0.1);
+}
+
+/** overall volume 0..1 — affects every sound, not just the music bed */
+export function setMasterVolume(v: number) {
+  masterVolume = Math.max(0, Math.min(v, 1));
+  persist(MASTER_KEY, String(masterVolume));
+  if (master && ctx) {
+    master.gain.setTargetAtTime(muted ? 0 : masterVolume, ctx.currentTime, 0.1);
+  }
+}
+
+export function getMasterVolume() {
+  return masterVolume;
+}
+
+export function getMusicVolume() {
+  return musicVolume;
 }
 
 export function isWeatherMuted() {
