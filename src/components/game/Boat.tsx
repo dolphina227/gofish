@@ -29,8 +29,8 @@ function BoatModel({
 }: {
   url: string;
   targetLength: number;
-  helmZFactor?: number;
-  helmXFactor?: number;
+  helmZFactor?: number | undefined;
+  helmXFactor?: number | undefined;
   helmYOffset?: number;
   deckYFactor?: number;
   flipBow?: boolean;
