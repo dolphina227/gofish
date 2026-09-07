@@ -32,6 +32,8 @@ import { ProfilePanel } from "../profile/ProfilePanel";
 import { GoldPanel } from "../gold/GoldPanel";
 import { QuestPanel } from "../quest/QuestPanel";
 import { QuestTracker } from "../quest/QuestTracker";
+import { GraphicsButton } from "./GraphicsButton";
+
 import { Npcs } from "./Npcs";
 import { NpcDialog } from "./NpcDialog";
 import { LeaderboardPanel } from "../leaderboard/LeaderboardPanel";
