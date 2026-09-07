@@ -184,7 +184,42 @@ interface WeatherStore {
   setKind: (k: WeatherKind) => void;
 }
 
+const KINDS = Object.keys(WEATHER) as WeatherKind[];
+
+function slotInterval(): number {
+  const v = getFishData().weatherCycle.change_interval_seconds;
+  return v > 0 ? v : 240;
+}
+
+/** Index of the weather slot the world is currently in. Derived from real
+ *  time so a refresh resumes the same weather instead of resetting. */
+export function currentWeatherSlot(nowMs = Date.now()): number {
+  return Math.floor((nowMs - WORLD_EPOCH_MS) / 1000 / slotInterval());
+}
+
+/** Deterministic 0..1 draw for a slot index (mulberry-ish hash). */
+function slotRandom(slot: number): number {
+  let h = (slot ^ 0x9e3779b9) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/** Same slot -> same weather, for every player and every refresh. */
+export function weatherForSlot(slot: number): WeatherKind {
+  const weights = getFishData().weatherCycle.weights;
+  const entries = KINDS.map((k) => [k, Math.max(0, Number(weights[k] ?? 0))] as const);
+  const total = entries.reduce((s, [, w]) => s + w, 0);
+  if (total <= 0) return "cerah";
+  let r = slotRandom(slot) * total;
+  for (const [k, w] of entries) {
+    r -= w;
+    if (r <= 0) return k;
+  }
+  return entries[entries.length - 1]![0];
+}
+
 export const useWeather = create<WeatherStore>((set) => ({
-  kind: "cerah",
+  kind: weatherForSlot(currentWeatherSlot()),
   setKind: (kind) => set({ kind }),
 }));
