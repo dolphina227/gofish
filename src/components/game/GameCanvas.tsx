@@ -98,15 +98,18 @@ export function GameCanvas() {
       onContextMenu={(e) => e.preventDefault()}
     >
       <Canvas
-        shadows
-        dpr={[1, 1.5]}
+        // Opsi WebGL (antialias) dan shadow map tidak reaktif, jadi ganti
+        // kualitas = remount kanvas sekali lewat key.
+        key={tier}
+        shadows={gfx.shadows}
+        dpr={gfx.dpr}
         camera={{ position: [-1.5, 8.6, 25.5], fov: 55, near: 0.1, far: 5000 }}
-        // antialias native dimatikan: EffectComposer di bawah sudah pakai
-        // multisampling={4} sendiri. Dua-duanya nyala bareng berarti scene
-        // di-resolve MSAA dua kali per frame (fill-rate dobel) tanpa
-        // tambahan kualitas visual yang kentara.
-        gl={{ antialias: false }}
+        // antialias native hanya dipakai kalau EffectComposer tidak aktif.
+        // Kalau dua-duanya nyala, scene di-resolve MSAA dua kali per frame
+        // (fill-rate dobel) tanpa tambahan kualitas visual yang kentara.
+        gl={{ antialias: !gfx.bloom && tier !== "low" }}
       >
+
         <Weather />
         <WeatherCycleController />
 
