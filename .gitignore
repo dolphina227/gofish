@@ -33,3 +33,7 @@ dist-ssr
 
 # raw model sources (too large for repo; regenerate via scripts/optimize-models.mjs)
 public/models/_source/
+
+.env
+.env.local
+.env.*.local
