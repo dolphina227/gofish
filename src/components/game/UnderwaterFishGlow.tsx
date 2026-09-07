@@ -49,7 +49,12 @@ const BEAM_PLANES = 3;
  *  grafis. Menggunakan getState() agar fungsi animasi pure tidak subscribe
  *  seluruh komponen setiap frame. */
 export function glowScale() {
-  return GRAPHICS[useGraphics.getState().tier ?? "high"].glowScale;
+  return fxPreset().glowScale;
+}
+
+/** Preset grafis aktif tanpa subscribe React (aman dipakai per frame). */
+export function fxPreset() {
+  return GRAPHICS[useGraphics.getState().tier ?? "high"];
 }
 
 
@@ -313,7 +318,8 @@ export function animateUnderwaterGlow(
   // Sprite aditif yang menutupi hampir seluruh layar sangat mahal di GPU
   // terintegrasi (overdraw + bloom), jadi ukurannya dikecilkan dan diskalakan
   // lagi mengikuti pilihan kualitas grafis.
-  const gs = glowScale();
+  const gfx = fxPreset();
+  const gs = gfx.glowScale;
 
   // ---- underwater source: a soft round glow at the fish's own depth --
   const core = refs.core;
@@ -352,6 +358,12 @@ export function animateUnderwaterGlow(
   for (let i = 0; i < BEAM_PLANES; i++) {
     const m = refs.beams[i];
     if (!m) continue;
+    // Bidang aditif besar = overdraw berat: pakai sesuai jatah kualitas.
+    if (i >= gfx.fxBeams) {
+      m.visible = false;
+      continue;
+    }
+    m.visible = true;
     m.scale.set(beamWidth, beamLen, 1);
     m.position.set(0, beamBottom + beamLen / 2, 0);
     const mat = m.material as THREE.MeshBasicMaterial;
@@ -361,9 +373,15 @@ export function animateUnderwaterGlow(
 
   // ---- motes: bright soft specks spiralling up out of the depths,
   // popping just past the surface, looping continuously ----------------
+  const moteCount = Math.max(3, Math.round(GLOW_MOTES * gfx.fxParticles));
   for (let i = 0; i < GLOW_MOTES; i++) {
     const m = refs.motes[i];
     if (!m) continue;
+    if (i >= moteCount) {
+      m.visible = false;
+      continue;
+    }
+    m.visible = true;
     const speed = 0.5 + (i % 4) * 0.14;
     const mk = (t * speed + i / GLOW_MOTES) % 1; // 0..1 loop
     const a = (i / GLOW_MOTES) * Math.PI * 2 + t * 0.4;
@@ -377,9 +395,10 @@ export function animateUnderwaterGlow(
 
   // ---- light bleeding through the water and off the surface ---------
   const light = refs.light;
+  light.visible = gfx.fxLights;
   light.color.set(color);
   light.position.y = -d * 0.6;
-  light.intensity = pulse * 12;
+  light.intensity = gfx.fxLights ? pulse * 12 : 0;
 }
 
 const ASCEND_EMBERS = 8;
@@ -545,7 +564,8 @@ export function animateCatchAscend(
   const fadeOut = 1 - Math.max(0, (progress - 0.88) / 0.12);
   const strength = Math.max(0, Math.min(1, fadeIn * fadeOut));
   const shimmer = 0.75 + Math.sin(t * 24) * 0.25;
-  const gs = glowScale();
+  const gfx = fxPreset();
+  const gs = gfx.glowScale;
 
 
   const core = refs.core;
@@ -567,6 +587,11 @@ export function animateCatchAscend(
   for (let i = 0; i < refs.trails.length; i++) {
     const m = refs.trails[i];
     if (!m) continue;
+    if (i >= gfx.fxBeams) {
+      m.visible = false;
+      continue;
+    }
+    m.visible = true;
     m.scale.set(trailWidth, trailLen, 1);
     m.position.set(0, h - trailLen / 2, 0);
     const mat = m.material as THREE.MeshBasicMaterial;
@@ -575,9 +600,15 @@ export function animateCatchAscend(
   }
 
   // ---- embers flung off the climbing head ----------------------------
+  const emberCount = Math.max(3, Math.round(ASCEND_EMBERS * gfx.fxParticles));
   for (let i = 0; i < ASCEND_EMBERS; i++) {
     const m = refs.embers[i];
     if (!m) continue;
+    if (i >= emberCount) {
+      m.visible = false;
+      continue;
+    }
+    m.visible = true;
     const speed = 1.1 + (i % 4) * 0.35;
     const mk = (t * speed + i / ASCEND_EMBERS) % 1; // 0..1 loop
     const a = (i / ASCEND_EMBERS) * Math.PI * 2 + i * 1.7;
@@ -609,7 +640,8 @@ export function animateCatchAscend(
 
   // ---- light bleeding off the climbing head --------------------------
   const light = refs.light;
+  light.visible = gfx.fxLights;
   light.color.set(color);
   light.position.y = h;
-  light.intensity = strength * shimmer * 10;
+  light.intensity = gfx.fxLights ? strength * shimmer * 10 : 0;
 }
