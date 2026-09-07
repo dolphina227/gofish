@@ -74,7 +74,7 @@ function BoatModel({
     if (flipBow) wrapper.rotation.y += Math.PI;
     wrapper.add(inner);
     // keep the hull bottom just above the waterline so the sea never shows inside
-    wrapper.position.y = -size.y * s * 0.05;
+    wrapper.position.y = 0;
     // seat the rider on the interior floor
     const deckY = wrapper.position.y + size.y * s * deckYFactor + helmYOffset;
     BOAT_SEAT.y = deckY;
@@ -94,6 +94,9 @@ function BoatModel({
   return <primitive object={model} />;
 }
 
+
+/** Jarak lambung di atas puncak ombak lokal (mencegah air masuk ke dek). */
+const FREEBOARD = 0.35;
 
 const ACCEL = 16; // throttle acceleration
 const REVERSE = 8;
