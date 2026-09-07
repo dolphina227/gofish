@@ -77,20 +77,6 @@ export function resetDeckOffset() {
   boat.offset.set(BOAT_SEAT.x, boat.deck.y, BOAT_SEAT.z);
 }
 
-/**
- * Walk on the deck: a world-space step is converted into hull-local space and
- * clamped to the deck box, so the character moves with the hull instead of
- * sliding off it.
- */
-export function moveOnDeck(dxWorld: number, dzWorld: number) {
-  const s = Math.sin(boat.yaw);
-  const c = Math.cos(boat.yaw);
-  const lx = (dxWorld * c - dzWorld * s) / BOAT_SCALE;
-  const lz = (dxWorld * s + dzWorld * c) / BOAT_SCALE;
-  boat.offset.x = THREE.MathUtils.clamp(boat.offset.x + lx, -boat.deck.halfX, boat.deck.halfX);
-  boat.offset.z = THREE.MathUtils.clamp(boat.offset.z + lz, -boat.deck.halfZ, boat.deck.halfZ);
-  boat.offset.y = boat.deck.y;
-}
 
 /** True when the character stands close enough to the helm to take the wheel. */
 export function nearHelm(): boolean {
