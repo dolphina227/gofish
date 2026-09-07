@@ -1,4 +1,7 @@
 import { create } from "zustand";
+import { getFishData } from "@/lib/fishRules";
+import { WORLD_EPOCH_MS } from "@/hooks/useDayNight";
+
 
 export type WeatherKind = "cerah" | "berawan" | "berkabut" | "hujan" | "badai";
 
