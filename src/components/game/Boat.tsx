@@ -29,11 +29,11 @@ function BoatModel({
 }: {
   url: string;
   targetLength: number;
-  helmZFactor?: number;
-  helmXFactor?: number;
-  helmYOffset?: number;
-  deckYFactor?: number;
-  flipBow?: boolean;
+  helmZFactor?: number | undefined;
+  helmXFactor?: number | undefined;
+  helmYOffset?: number | undefined;
+  deckYFactor?: number | undefined;
+  flipBow?: boolean | undefined;
 }) {
   const { scene } = useGLTF(url, "/draco/");
   const model = useMemo(() => {

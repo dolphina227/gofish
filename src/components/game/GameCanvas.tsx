@@ -99,7 +99,7 @@ export function GameCanvas() {
     >
       <Canvas
         shadows
-        dpr={[1, 1.75]}
+        dpr={[1, 1.5]}
         camera={{ position: [-1.5, 8.6, 25.5], fov: 55, near: 0.1, far: 5000 }}
         // antialias native dimatikan: EffectComposer di bawah sudah pakai
         // multisampling={4} sendiri. Dua-duanya nyala bareng berarti scene
@@ -149,7 +149,7 @@ export function GameCanvas() {
         <FollowTarget controls={controls} />
         <Npcs />
 
-        <EffectComposer multisampling={4}>
+        <EffectComposer multisampling={2}>
           <Bloom
             intensity={0.5}
             luminanceThreshold={1.5}

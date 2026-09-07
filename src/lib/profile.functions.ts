@@ -213,7 +213,7 @@ export const recordCatch = createServerFn({ method: "POST" })
     // only advances the current quest slot's progress counter, best-effort.
     // A failure here must never fail the catch itself.
     try {
-      await supabaseAdmin.rpc("advance_quest_progress", {
+      await (supabaseAdmin.rpc as unknown as (fn: string, args: Record<string, unknown>) => PromiseLike<unknown>)("advance_quest_progress", {
         _wallet: wallet,
         _event_type: "catch_count",
         _key: row.out_rarity,

@@ -335,8 +335,8 @@ function Atmosphere({ flash }: { flash: React.MutableRefObject<number> }) {
         intensity={WEATHER.cerah.sun}
         color={WEATHER.cerah.sunColor}
         castShadow
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
         shadow-camera-left={-80}
         shadow-camera-right={80}
         shadow-camera-top={80}
