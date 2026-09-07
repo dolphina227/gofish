@@ -1,38 +1,27 @@
 import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
-import { useWeather, WEATHER, type WeatherKind } from "@/hooks/useWeather";
+import { useWeather, currentWeatherSlot, weatherForSlot } from "@/hooks/useWeather";
 import { useDayNight } from "@/hooks/useDayNight";
-import { getFishData } from "@/lib/fishRules";
 
-const KINDS = Object.keys(WEATHER) as WeatherKind[];
-
-function pickWeather(weights: Record<string, number>): WeatherKind {
-  const entries = KINDS.map((k) => [k, Math.max(0, Number(weights[k] ?? 0))] as const);
-  const total = entries.reduce((s, [, w]) => s + w, 0);
-  if (total <= 0) return "cerah";
-  let r = Math.random() * total;
-  for (const [k, w] of entries) {
-    r -= w;
-    if (r <= 0) return k;
-  }
-  return entries[entries.length - 1]![0];
-}
-
-/** Advances the in-game clock and rolls the weather on an interval.
+/** Advances the in-game clock and keeps the weather in sync with the
+ *  real-time weather slot. Both are pure functions of wall-clock time, so a
+ *  refresh resumes the current weather/hour instead of resetting.
  *  Renders nothing. */
 export function WeatherCycleController() {
-  const elapsed = useRef(0);
+  const slotRef = useRef<number | null>(null);
 
   useFrame((_, raw) => {
     const dt = Math.min(raw, 0.05);
     useDayNight.getState().advance(dt);
 
-    const cycle = getFishData().weatherCycle;
-    const interval = cycle.change_interval_seconds > 0 ? cycle.change_interval_seconds : 240;
-    elapsed.current += dt;
-    if (elapsed.current < interval) return;
-    elapsed.current = 0;
-    useWeather.getState().setKind(pickWeather(cycle.weights));
+    const slot = currentWeatherSlot();
+    const kind = weatherForSlot(slot);
+    // Recompute every frame is cheap; only push when the resolved weather
+    // actually changes (slot rollover, or weights arriving from the server).
+    if (slotRef.current !== slot || useWeather.getState().kind !== kind) {
+      slotRef.current = slot;
+      if (useWeather.getState().kind !== kind) useWeather.getState().setKind(kind);
+    }
   });
 
   return null;
