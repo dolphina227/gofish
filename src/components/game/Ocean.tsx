@@ -162,10 +162,13 @@ const fragmentShader = /* glsl */ `
     col += glitterB * 0.55 * detailFade * vec3(0.95, 1.0, 1.0);
 
     // View-independent surface glints: thin bright wavelet tops, like the
-    // scattered white flecks on sunlit tropical water.
-    float hf = fbm(p * 2.4 + vec2(t * 0.55, -t * 0.33)) + 0.55 * fbm(p * 5.6 - vec2(t * 0.9, t * 0.4));
+    // scattered white flecks on sunlit tropical water. Oktaf kedua hanya di
+    // kualitas menengah ke atas.
+    float hf = fbm(p * 2.4 + vec2(t * 0.55, -t * 0.33));
+    if (uDetail > 0.5) hf += 0.55 * fbm(p * 5.6 - vec2(t * 0.9, t * 0.4));
     float glint = smoothstep(0.30, 0.52, hf) * (1.0 - smoothstep(0.62, 0.85, hf));
     col += glint * 0.85 * detailFade * vec3(1.0, 1.0, 1.0);
+
 
     // --- foam on the tallest crests ---
     float crest = smoothstep(0.62, 1.0, vWave + r0 * 0.35);
