@@ -9,6 +9,8 @@ import {
   boatSeatWorld,
   nearHelm,
   resetDeckOffset,
+  snapSeatToDeck,
+  boatHullRef,
   BOAT_SCALE,
   BOAT_SEAT,
 } from "@/hooks/useBoat";
@@ -87,7 +89,10 @@ function BoatModel({
     // helm sits toward the stern; keep it inside the deck box
     BOAT_SEAT.z = -boat.deck.halfZ * helmZFactor;
     BOAT_SEAT.x = boat.deck.halfX * helmXFactor;
-    resetDeckOffset();
+    // expose the real hull geometry for deck raycasts, then snap the
+    // helm/boarding spot onto the actual deck surface (not a guessed box)
+    boatHullRef.current = wrapper;
+    snapSeatToDeck();
     return wrapper;
   }, [scene, targetLength, helmZFactor, helmXFactor, helmYOffset, deckYFactor, flipBow]);
 
