@@ -189,6 +189,8 @@ export function Ocean() {
   const mat = useRef<THREE.ShaderMaterial>(null);
   const mesh = useRef<THREE.Mesh>(null);
   const kind = useWeather((s) => s.kind);
+  const tier = useGraphics((s) => s.tier);
+  const detail = GRAPHICS[tier].oceanDetail;
   const { scene } = useThree();
 
   const uniforms = useMemo(
@@ -199,9 +201,18 @@ export function Ocean() {
       uDeep: { value: new THREE.Color("#12a2b4") },
       uHorizon: { value: new THREE.Color("#b9dff3") },
       uSun: { value: new THREE.Vector3(30, 28, 18) },
+      uDetail: { value: 2 },
     }),
     [],
   );
+
+  // Tingkat detail hanya diupdate saat pilihan kualitas berubah, bukan per frame.
+  useEffect(() => {
+    const u = mat.current?.uniforms;
+    if (u?.['uDetail']) u['uDetail'].value = detail;
+  }, [detail]);
+
+
 
   // Target colours per weather kind, cached so the lerp can damp toward them.
   const targets = useMemo(() => {
