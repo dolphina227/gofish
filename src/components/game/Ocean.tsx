@@ -140,9 +140,13 @@ const fragmentShader = /* glsl */ `
     body += sss * 0.10 * vec3(0.35, 1.0, 0.92);
 
     // --- caustic-like light bands under the surface ---
-    float caustic = ripples(p * 1.25 + vec2(0.0, t * 0.35), t * 0.8);
-    float bands = smoothstep(0.10, 0.30, caustic);
-    body += bands * 0.13 * vec3(0.55, 1.0, 0.98) * detailFade;
+    // Dilewati di kualitas rendah: ini satu evaluasi ripples penuh per piksel.
+    if (uDetail > 0.5) {
+      float caustic = ripples(p * 1.25 + vec2(0.0, t * 0.35), t * 0.8);
+      float bands = smoothstep(0.10, 0.30, caustic);
+      body += bands * 0.13 * vec3(0.55, 1.0, 0.98) * detailFade;
+    }
+
 
     // --- fresnel sky reflection ---
     float fres = pow(1.0 - max(dot(n, viewDir), 0.0), 4.0);
