@@ -1,37 +1,30 @@
-# Walk on the real boat deck
+# Weather and time keep running across refreshes
 
-Right now, when the player is aboard but not holding the wheel, the character walks inside an invented rectangle: a flat box guessed from the hull's overall size (`boat.deck.halfX/halfZ` from the bounding box, floor height from a fixed `deckYFactor` fraction). That box ignores what each boat model actually looks like — so the character can hover above a low deck, sink into a raised one, walk through a cabin wall, or stop short of open deck space. It is the same guess for every hull, which is why every boat feels wrong in a different way.
+## Problem
 
-## What will change
+Right now the in-game clock always starts at 07:00 and the weather always starts at "Clear" whenever the page loads. The weather then re-rolls randomly on a timer while you play. So if it is raining at 09:00 and you refresh, you come back to a sunny 07:00 morning.
 
-The character will stand on the boat's real surfaces:
+## Goal
 
-- Where the character can walk is read from the boat model itself, not from a rectangle.
-- The character's feet follow the actual floor height — steps up onto a raised bow or down into a cockpit work.
-- Cabins, masts and rails block movement instead of being walked through.
-- Walking off the edge of the deck is not possible; the step is simply refused.
-- This works for every boat, including ones added later, with no per-boat tuning.
+After a refresh — at any moment — you land back into exactly the weather and time that the world is in at that moment. No reset, no jump.
 
-## How it works (technical)
+## Approach
 
-1. **Expose the hull model.** `BoatModel` in `src/components/game/Boat.tsx` already builds the transformed wrapper group; store it (via a ref/callback on the parent `Boat`) so deck queries can raycast against the loaded meshes.
+Make the clock and the weather calculated from the real elapsed time since a fixed starting point, instead of from "when this browser tab opened".
 
-2. **New deck probe in `src/hooks/useBoat.ts`.** Add `probeDeck(localX, localZ): number | null`:
-   - Convert the hull-local point to the model group's space, cast a `THREE.Raycaster` straight down from above the hull top.
-   - Return the highest hit whose surface is near-horizontal (normal.y > ~0.6) and below the character's head clearance; `null` when nothing is hit (that point is off the deck).
-   - Reuse a module-level raycaster/vectors so nothing is allocated per frame.
+- Time of day: derived from the current real time and the configured day length, so it always continues where the world is.
+- Weather: the timeline is split into fixed slots (the existing change interval). Each slot's weather is picked with a repeatable draw based on the slot number and the configured weather chances. The same slot always produces the same weather, so a refresh in the middle of a rainy slot returns rain.
+- Side effect (positive): every player sees the same weather and the same time, which also makes the world feel shared.
 
-3. **Replace box clamping in `moveOnDeck`.** Instead of clamping to `deck.halfX/halfZ`:
-   - Probe the candidate position. Reject the step when the probe returns `null` (off the hull) or when the height jump exceeds a step limit (~0.35 local units) — that is a wall, cabin side, or rail.
-   - Accept otherwise and set `boat.offset.y` to the probed floor height (smoothly damped so small bumps don't jitter the camera).
-   - Probe the four points around the character's radius, not just the center, so the body doesn't clip into structures.
+## Technical notes
 
-4. **Seat and boarding placement.** After the model loads, probe outward from the auto-computed helm spot for the nearest valid deck point and snap `BOAT_SEAT` / `resetDeckOffset()` there, so boarding never drops the character into a cabin or the keel. Keep the existing `helmZFactor` / `helmXFactor` / `helmYOffset` overrides as nudges applied before the probe.
-
-5. **Fallback.** If the model has not loaded yet or the probe finds nothing anywhere (unusual geometry), fall back to the current bounding-box behaviour so the player is never stuck.
-
-6. **Cost.** A handful of short raycasts only while the player walks on deck (not while driving, not while ashore), limited to the hull subtree — negligible next to the scene render.
+- `src/hooks/useDayNight.ts`: replace the frame-accumulated `clock.hour` seed with `hourFromEpoch(Date.now())` using `dayLengthSeconds()`; keep the per-frame advance for smoothness but re-anchor to real time on init and periodically to avoid drift.
+- `src/hooks/useWeather.ts`: initialise `kind` lazily from a new `weatherForSlot(slotIndex)` helper — a small deterministic PRNG (hash of slot index) sampling `getFishData().weatherCycle.weights`.
+- `src/components/game/WeatherCycleController.tsx`: instead of an elapsed-time counter with `Math.random()`, compute the current slot index from `Date.now()` each frame and call `setKind(weatherForSlot(slot))` only when the slot changes.
+- Weather data loads asynchronously (`fishData.functions.ts`); once weights arrive, recompute the current slot's weather so the first paint corrects itself instead of staying on the default.
+- No database changes required.
 
 ## Verification
 
-Board each boat type, walk bow-to-stern and side-to-side, confirm the feet sit on the visible deck, structures block, edges stop movement, and taking the wheel still works.
+- Load the game, note weather and clock, refresh: both continue instead of resetting.
+- Open two tabs: same weather and same time in both.
