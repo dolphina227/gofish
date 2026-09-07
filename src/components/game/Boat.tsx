@@ -9,6 +9,8 @@ import {
   boatSeatWorld,
   nearHelm,
   resetDeckOffset,
+  snapSeatToDeck,
+  boatHullRef,
   BOAT_SCALE,
   BOAT_SEAT,
 } from "@/hooks/useBoat";
