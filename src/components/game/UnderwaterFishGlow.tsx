@@ -456,6 +456,15 @@ export function CatchAscendGlowMesh() {
  *                   only easing out right near the end)
  * @param color      rarity tint
  */
+type AscendRefs = {
+  core: THREE.Sprite;
+  halo: THREE.Sprite;
+  trails: THREE.Mesh[];
+  embers: THREE.Sprite[];
+  ring: THREE.Mesh;
+  light: THREE.PointLight;
+};
+
 export function animateCatchAscend(
   g: THREE.Group,
   t: number,
@@ -463,8 +472,31 @@ export function animateCatchAscend(
   progress: number,
   color: string,
 ) {
-  const setOpacity = (name: string, op: number, tint?: string) => {
-    const o = g.getObjectByName(name) as THREE.Sprite | THREE.Mesh | undefined;
+  // Cache scene-graph lookups once per group (same pattern as
+  // MonsterBurst.tsx) — getObjectByName walks the whole subtree, and doing
+  // that ~20x every frame is what made catches stutter.
+  let refs = g.userData["_ascendRefs"] as AscendRefs | undefined;
+  if (!refs) {
+    refs = {
+      core: g.getObjectByName("ascendCore") as THREE.Sprite,
+      halo: g.getObjectByName("ascendHalo") as THREE.Sprite,
+      trails: Array.from({ length: 3 }, (_, i) => g.getObjectByName(`ascendTrail${i}`) as THREE.Mesh),
+      embers: Array.from(
+        { length: ASCEND_EMBERS },
+        (_, i) => g.getObjectByName(`ember${i}`) as THREE.Sprite,
+      ),
+      ring: g.getObjectByName("breachRing") as THREE.Mesh,
+      light: g.getObjectByName("ascendLight") as THREE.PointLight,
+    };
+    if (!refs.core || !refs.halo || !refs.ring || !refs.light) return;
+    g.userData["_ascendRefs"] = refs;
+  }
+
+  const setOpacity = (
+    o: THREE.Sprite | THREE.Mesh | undefined,
+    op: number,
+    tint?: string,
+  ) => {
     if (!o) return;
     const mat = o.material as THREE.SpriteMaterial | THREE.MeshBasicMaterial;
     mat.opacity = Math.max(0, Math.min(1, op));
@@ -479,27 +511,23 @@ export function animateCatchAscend(
   const strength = Math.max(0, Math.min(1, fadeIn * fadeOut));
   const shimmer = 0.75 + Math.sin(t * 24) * 0.25;
 
-  const core = g.getObjectByName("ascendCore") as THREE.Sprite | undefined;
-  if (core) {
-    core.position.y = h;
-    const s = 1.0 + shimmer * 0.5;
-    core.scale.set(s, s, 1);
-  }
-  setOpacity("ascendCore", 0.9 * strength * shimmer, "#ffffff");
+  const core = refs.core;
+  core.position.y = h;
+  const cs = 1.0 + shimmer * 0.5;
+  core.scale.set(cs, cs, 1);
+  setOpacity(core, 0.9 * strength * shimmer, "#ffffff");
 
-  const halo = g.getObjectByName("ascendHalo") as THREE.Sprite | undefined;
-  if (halo) {
-    halo.position.y = h;
-    const s = 2.2 + shimmer * 1.1;
-    halo.scale.set(s, s, 1);
-  }
-  setOpacity("ascendHalo", 0.55 * strength * shimmer, color);
+  const halo = refs.halo;
+  halo.position.y = h;
+  const hs = 2.2 + shimmer * 1.1;
+  halo.scale.set(hs, hs, 1);
+  setOpacity(halo, 0.55 * strength * shimmer, color);
 
   // ---- streak trailing behind (below) the head -----------------------
   const trailLen = 1.6 + shimmer * 1.0;
   const trailWidth = 0.55 + strength * 0.35;
-  for (let i = 0; i < 3; i++) {
-    const m = g.getObjectByName(`ascendTrail${i}`) as THREE.Mesh | undefined;
+  for (let i = 0; i < refs.trails.length; i++) {
+    const m = refs.trails[i];
     if (!m) continue;
     m.scale.set(trailWidth, trailLen, 1);
     m.position.set(0, h - trailLen / 2, 0);
@@ -510,17 +538,17 @@ export function animateCatchAscend(
 
   // ---- embers flung off the climbing head ----------------------------
   for (let i = 0; i < ASCEND_EMBERS; i++) {
-    const m = g.getObjectByName(`ember${i}`) as THREE.Sprite | undefined;
+    const m = refs.embers[i];
     if (!m) continue;
     const speed = 1.1 + (i % 4) * 0.35;
     const mk = (t * speed + i / ASCEND_EMBERS) % 1; // 0..1 loop
     const a = (i / ASCEND_EMBERS) * Math.PI * 2 + i * 1.7;
     const rad = mk * 1.4;
-    const fall = mk * mk * 1.3; // gravity-ish droop as it flies out
+    const fall = mk * mk * 0.9;
     m.position.set(Math.cos(a) * rad, h + 0.15 - fall, Math.sin(a) * rad);
     const sc = Math.max(0.02, (1 - mk) * 0.4);
     m.scale.set(sc, sc, 1);
-    setOpacity(`ember${i}`, (1 - mk) * 0.8 * strength, color);
+    setOpacity(m, (1 - mk) * 0.8 * strength, color);
   }
 
   // ---- one-shot breach ring the instant h crosses the surface --------
@@ -528,26 +556,22 @@ export function animateCatchAscend(
   if (prevH < 0 && h >= 0) g.userData["breachAt"] = t;
   g.userData["prevH"] = h;
 
-  const ring = g.getObjectByName("breachRing") as THREE.Mesh | undefined;
-  if (ring) {
-    const at = g.userData["breachAt"] as number | undefined;
-    const rk = at !== undefined ? (t - at) / 0.5 : 1;
-    ring.visible = rk < 1;
-    if (rk < 1) {
-      ring.position.y = 0.05;
-      const s = 1.2 + rk * 3.2;
-      ring.scale.setScalar(s);
-      const mat = ring.material as THREE.MeshBasicMaterial;
-      mat.opacity = (1 - rk) * 0.7 * strength;
-      mat.color.set(color);
-    }
+  const ring = refs.ring;
+  const at = g.userData["breachAt"] as number | undefined;
+  const rk = at !== undefined ? (t - at) / 0.5 : 1;
+  ring.visible = rk < 1;
+  if (rk < 1) {
+    ring.position.y = 0.05;
+    const s = 1.2 + rk * 3.2;
+    ring.scale.setScalar(s);
+    const mat = ring.material as THREE.MeshBasicMaterial;
+    mat.opacity = (1 - rk) * 0.7 * strength;
+    mat.color.set(color);
   }
 
   // ---- light bleeding off the climbing head --------------------------
-  const light = g.getObjectByName("ascendLight") as THREE.PointLight | undefined;
-  if (light) {
-    light.color.set(color);
-    light.position.y = h;
-    light.intensity = strength * shimmer * 10;
-  }
+  const light = refs.light;
+  light.color.set(color);
+  light.position.y = h;
+  light.intensity = strength * shimmer * 10;
 }
