@@ -465,21 +465,25 @@ export function Boat() {
     }
 
     // ---- float on the swell -------------------------------------------
-    // Air bisa "menembus" lambung kalau kapal hanya mengikuti tinggi ombak di
-    // titik tengahnya: haluan/buritan berada di puncak gelombang yang lebih
-    // tinggi dari dek. Jadi kita sampel 4 titik sepanjang lambung dan memakai
-    // yang TERTINGGI, lalu tambah freeboard.
+    // Agar air tidak menembus lambung pada boat mana pun, kita sampel tinggi
+    // ombak di seluruh jejak lambung sungguhan (bukan hanya kotak dek yang
+    // lebih kecil), ambil yang TERTINGGI, lalu tambah freeboard. Lambung
+    // (bottom di y=0 lokal) selalu di atas puncak ombak → air tak pernah
+    // masuk ke dalam boat.
     const sy = Math.sin(boat.yaw);
     const cy = Math.cos(boat.yaw);
-    const halfLen = boat.deck.halfZ * BOAT_SCALE * 1.25;
-    const halfBeam = boat.deck.halfX * BOAT_SCALE * 1.25;
+    // boat.deck.halfX/Z is 0.55 / 0.60 of the real hull footprint — convert
+    // back to the true hull half-extents in world units.
+    const halfLen = (boat.deck.halfZ * BOAT_SCALE) / 0.6;
+    const halfBeam = (boat.deck.halfX * BOAT_SCALE) / 0.55;
     const h = waterHeight(boat.pos.x, boat.pos.z, t);
     const hb = waterHeight(boat.pos.x + sy * halfLen, boat.pos.z + cy * halfLen, t);
     const hst = waterHeight(boat.pos.x - sy * halfLen, boat.pos.z - cy * halfLen, t);
     const hs = waterHeight(boat.pos.x + cy * halfBeam, boat.pos.z - sy * halfBeam, t);
     const hp = waterHeight(boat.pos.x - cy * halfBeam, boat.pos.z + sy * halfBeam, t);
     const hMax = Math.max(h, hb, hst, hs, hp);
-    // freeboard cukup untuk menutup sisa selisih gelombang di dalam footprint
+    // FREEBOARD keeps the keel above the highest crest sampled across the
+    // full hull, so no wave can overtop the gunwale into the boat.
     const target = hMax + FREEBOARD;
     // naik cepat (agar tak kelelep), turun lebih lembut
     boat.pos.y = damp(boat.pos.y, target, boat.pos.y < target ? 22 : 6, dt);
@@ -489,14 +493,15 @@ export function Boat() {
       (window as unknown as { __boatGroup?: THREE.Group }).__boatGroup = g;
       g.position.copy(boat.pos);
       g.rotation.y = boat.yaw;
-      // ikuti kemiringan permukaan supaya lambung sejajar ombak (bukan menembus)
+      // ikuti kemiringan permukaan penuh supaya lambung sejajar ombak (bukan
+      // menembus di salah satu ujung)
       const pitch = THREE.MathUtils.clamp(
-        Math.atan2(hb - hst, 2 * halfLen) * 0.6,
+        Math.atan2(hb - hst, 2 * halfLen),
         -0.18,
         0.18,
       ) - boat.speed * 0.003;
       const roll = THREE.MathUtils.clamp(
-        Math.atan2(hs - hp, 2 * halfBeam) * 0.6,
+        Math.atan2(hs - hp, 2 * halfBeam),
         -0.15,
         0.15,
       ) + boat.turn * 0.06;
