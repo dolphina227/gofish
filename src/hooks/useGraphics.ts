@@ -12,6 +12,12 @@ export interface GraphicsPreset {
   oceanDetail: number;
   /** pengali ukuran sprite efek cahaya bawah air */
   glowScale: number;
+  /** lampu dinamis pada efek memancing (mahal di GPU lemah) */
+  fxLights: boolean;
+  /** jumlah bidang beam cahaya bawah air */
+  fxBeams: number;
+  /** pengali jumlah partikel (motes/embers) efek memancing */
+  fxParticles: number;
 }
 
 export const GRAPHICS: Record<GraphicsTier, GraphicsPreset> = {
@@ -22,7 +28,10 @@ export const GRAPHICS: Record<GraphicsTier, GraphicsPreset> = {
     bloom: false,
     multisampling: 0,
     oceanDetail: 0,
-    glowScale: 0.55,
+    glowScale: 0.45,
+    fxLights: false,
+    fxBeams: 1,
+    fxParticles: 0.34,
   },
   medium: {
     label: "Medium",
@@ -32,6 +41,9 @@ export const GRAPHICS: Record<GraphicsTier, GraphicsPreset> = {
     multisampling: 2,
     oceanDetail: 1,
     glowScale: 0.8,
+    fxLights: true,
+    fxBeams: 2,
+    fxParticles: 0.7,
   },
   high: {
     label: "High",
@@ -41,6 +53,9 @@ export const GRAPHICS: Record<GraphicsTier, GraphicsPreset> = {
     multisampling: 2,
     oceanDetail: 2,
     glowScale: 1,
+    fxLights: true,
+    fxBeams: 3,
+    fxParticles: 1,
   },
 };
 
