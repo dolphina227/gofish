@@ -145,7 +145,7 @@ export async function resolveHoldStatus(walletAddress: string): Promise<HoldStat
   ]);
 
   if (tiersRes.error) throw new Error(tiersRes.error.message);
-  const tiers = (tiersRes.data ?? []) as HoldTier[];
+  const tiers = (tiersRes.data ?? []) as unknown as HoldTier[];
 
   const usdValue = balance * priceUsd;
   const instantTier = tiers.find((t) => usdValue >= t.min_usd_value) ?? null;

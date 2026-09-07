@@ -102,7 +102,7 @@ export function rollFish(weatherKind = "cerah"): FishCatch {
   }
 
   const oddsOneIn = pickWeight > 0 ? Math.max(1, Math.round(total / pickWeight)) : undefined;
-  return { ...toCatch(pick), oddsOneIn };
+  return { ...toCatch(pick), ...(oddsOneIn !== undefined ? { oddsOneIn } : {}) };
 }
 
 /**
