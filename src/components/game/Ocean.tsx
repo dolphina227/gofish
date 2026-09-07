@@ -79,6 +79,8 @@ const fragmentShader = /* glsl */ `
   uniform vec3 uDeep;
   uniform vec3 uHorizon;
   uniform vec3 uSun;
+  uniform float uDetail;
+
   varying vec3 vWorld;
   varying float vWave;
   varying vec3 vNormalW;
