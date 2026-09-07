@@ -66,6 +66,9 @@ export function GameCanvas() {
     .lerp(dayNightAt(hour).tint, TINT_WEIGHT)
     .getStyle();
   useFishData();
+  const tier = useGraphics((s) => s.tier);
+  const gfx = GRAPHICS[tier];
+
 
   // Browsers may suspend WebAudio after focus/background transitions. Resume
   // on every relevant gesture, in capture phase so gameplay handlers always
