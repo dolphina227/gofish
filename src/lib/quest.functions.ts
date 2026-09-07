@@ -41,6 +41,19 @@ export const getQuestProgress = createServerFn({ method: "POST" })
     const { verifyWalletProof } = await import("./walletProof.server");
     const wallet = await verifyWalletProof(data);
 
+    // The quest progress row has a FK to profiles(wallet_address); the quest
+    // panel can refresh before the profile has been created, which would blow
+    // up with a foreign-key violation. Treat "no profile yet" as "no quest".
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const profile = await supabaseAdmin
+      .from("profiles")
+      .select("wallet_address")
+      .eq("wallet_address", wallet)
+      .maybeSingle();
+    if (profile.error) throw new Error(profile.error.message);
+    if (!profile.data) return null;
+
+
     const res = await rpc<
       Array<{
         quest_id: string;
