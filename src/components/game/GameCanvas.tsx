@@ -157,15 +157,18 @@ export function GameCanvas() {
         <FollowTarget controls={controls} />
         <Npcs />
 
-        <EffectComposer multisampling={2}>
-          <Bloom
-            intensity={0.5}
-            luminanceThreshold={1.5}
-            luminanceSmoothing={0.1}
-            mipmapBlur={false}
-            radius={0.35}
-          />
-        </EffectComposer>
+        {gfx.bloom ? (
+          <EffectComposer multisampling={gfx.multisampling}>
+            <Bloom
+              intensity={0.5}
+              luminanceThreshold={1.5}
+              luminanceSmoothing={0.1}
+              mipmapBlur={false}
+              radius={0.35}
+            />
+          </EffectComposer>
+        ) : null}
+
       </Canvas>
       <HUD />
       <CatchPopup />
