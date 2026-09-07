@@ -545,22 +545,25 @@ export function animateCatchAscend(
   const fadeOut = 1 - Math.max(0, (progress - 0.88) / 0.12);
   const strength = Math.max(0, Math.min(1, fadeIn * fadeOut));
   const shimmer = 0.75 + Math.sin(t * 24) * 0.25;
+  const gs = glowScale();
+
 
   const core = refs.core;
   core.position.y = h;
-  const cs = 1.0 + shimmer * 0.5;
+  const cs = (1.0 + shimmer * 0.5) * gs;
   core.scale.set(cs, cs, 1);
   setOpacity(core, 0.9 * strength * shimmer, "#ffffff");
 
   const halo = refs.halo;
   halo.position.y = h;
-  const hs = 2.2 + shimmer * 1.1;
+  const hs = (2.2 + shimmer * 1.1) * gs;
   halo.scale.set(hs, hs, 1);
   setOpacity(halo, 0.55 * strength * shimmer, color);
 
   // ---- streak trailing behind (below) the head -----------------------
-  const trailLen = 1.6 + shimmer * 1.0;
-  const trailWidth = 0.55 + strength * 0.35;
+  const trailLen = (1.6 + shimmer * 1.0) * gs;
+  const trailWidth = (0.55 + strength * 0.35) * gs;
+
   for (let i = 0; i < refs.trails.length; i++) {
     const m = refs.trails[i];
     if (!m) continue;
