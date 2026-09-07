@@ -58,14 +58,38 @@ interface DayNightStore {
   advance: (dt: number) => void;
 }
 
+/** Fixed world epoch. The clock is a pure function of real time since this
+ *  instant, so a refresh (or a second player) always lands on the same hour
+ *  instead of restarting the day. */
+export const WORLD_EPOCH_MS = Date.UTC(2024, 0, 1, 0, 0, 0);
+/** In-game hour the world epoch corresponds to. */
+const EPOCH_HOUR = 7;
+
+/** In-game hour for a real-world timestamp. */
+export function hourFromEpoch(nowMs = Date.now()): number {
+  const elapsed = (nowMs - WORLD_EPOCH_MS) / 1000;
+  return (((EPOCH_HOUR + (elapsed / dayLengthSeconds()) * 24) % 24) + 24) % 24;
+}
+
 /** Frame-precise clock. The store mirrors it in coarse steps so HUD
  *  subscribers don't re-render every frame. */
-export const clock = { hour: 7 };
+export const clock = { hour: hourFromEpoch() };
+
+/** Re-anchor cadence (seconds) so the frame clock never drifts from real time. */
+const RESYNC_SECONDS = 5;
+let sinceResync = 0;
 
 export const useDayNight = create<DayNightStore>((set, get) => ({
-  hour: 7,
+  hour: clock.hour,
   advance: (dt) => {
-    clock.hour = (clock.hour + (dt / dayLengthSeconds()) * 24) % 24;
+    sinceResync += dt;
+    if (sinceResync >= RESYNC_SECONDS) {
+      sinceResync = 0;
+      clock.hour = hourFromEpoch();
+    } else {
+      clock.hour = (clock.hour + (dt / dayLengthSeconds()) * 24) % 24;
+    }
     if (Math.abs(clock.hour - get().hour) > 0.05) set({ hour: clock.hour });
   },
 }));
+
