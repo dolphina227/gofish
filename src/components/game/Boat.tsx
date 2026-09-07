@@ -457,22 +457,45 @@ export function Boat() {
     }
 
     // ---- float on the swell -------------------------------------------
+    // Air bisa "menembus" lambung kalau kapal hanya mengikuti tinggi ombak di
+    // titik tengahnya: haluan/buritan berada di puncak gelombang yang lebih
+    // tinggi dari dek. Jadi kita sampel 4 titik sepanjang lambung dan memakai
+    // yang TERTINGGI, lalu tambah freeboard.
+    const sy = Math.sin(boat.yaw);
+    const cy = Math.cos(boat.yaw);
+    const halfLen = boat.deck.halfZ * BOAT_SCALE * 1.25;
+    const halfBeam = boat.deck.halfX * BOAT_SCALE * 1.25;
     const h = waterHeight(boat.pos.x, boat.pos.z, t);
-    boat.pos.y = damp(boat.pos.y, h + 0.06, 7, dt);
+    const hb = waterHeight(boat.pos.x + sy * halfLen, boat.pos.z + cy * halfLen, t);
+    const hst = waterHeight(boat.pos.x - sy * halfLen, boat.pos.z - cy * halfLen, t);
+    const hs = waterHeight(boat.pos.x + cy * halfBeam, boat.pos.z - sy * halfBeam, t);
+    const hp = waterHeight(boat.pos.x - cy * halfBeam, boat.pos.z + sy * halfBeam, t);
+    const hMax = Math.max(h, hb, hst, hs, hp);
+    // freeboard cukup untuk menutup sisa selisih gelombang di dalam footprint
+    const target = hMax + FREEBOARD;
+    // naik cepat (agar tak kelelep), turun lebih lembut
+    boat.pos.y = damp(boat.pos.y, target, boat.pos.y < target ? 22 : 6, dt);
 
-    const hb = waterHeight(boat.pos.x + Math.sin(boat.yaw) * 2, boat.pos.z + Math.cos(boat.yaw) * 2, t);
-    const hs = waterHeight(boat.pos.x + Math.cos(boat.yaw) * 1, boat.pos.z - Math.sin(boat.yaw) * 1, t);
     const g = group.current;
     if (g) {
       (window as unknown as { __boatGroup?: THREE.Group }).__boatGroup = g;
       g.position.copy(boat.pos);
       g.rotation.y = boat.yaw;
-      // keep the hull level: only a hint of swell + a very light bank in turns
-      const pitch = THREE.MathUtils.clamp((hb - h) * 0.08, -0.06, 0.06) - boat.speed * 0.003;
-      const roll = THREE.MathUtils.clamp((hs - h) * 0.08, -0.06, 0.06) + boat.turn * 0.06;
-      g.rotation.x = damp(g.rotation.x, pitch, 3, dt);
-      g.rotation.z = damp(g.rotation.z, roll, 3, dt);
+      // ikuti kemiringan permukaan supaya lambung sejajar ombak (bukan menembus)
+      const pitch = THREE.MathUtils.clamp(
+        Math.atan2(hb - hst, 2 * halfLen) * 0.6,
+        -0.18,
+        0.18,
+      ) - boat.speed * 0.003;
+      const roll = THREE.MathUtils.clamp(
+        Math.atan2(hs - hp, 2 * halfBeam) * 0.6,
+        -0.15,
+        0.15,
+      ) + boat.turn * 0.06;
+      g.rotation.x = damp(g.rotation.x, pitch, 5, dt);
+      g.rotation.z = damp(g.rotation.z, roll, 5, dt);
     }
+
 
 
     // ---- carry the rider ------------------------------------------------
